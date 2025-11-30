@@ -1,10 +1,14 @@
 import base64
+import os
 
 import streamlit as st
 
 from ai_analyzer import analyze_with_ai
 from schema import MODEL_OPTIONS, POLICY_ITEMS
 from screen_shot import take_screenshot
+
+os.system("playwright install")
+os.system("playwright install-deps")
 
 
 def process_url(
