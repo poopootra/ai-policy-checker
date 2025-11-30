@@ -1,0 +1,107 @@
+# Book Building Checker - Cursor Rules
+
+## Project Overview
+This project is an AI PoC application using Streamlit. It performs violation checks on user-entered URLs based on selected policy items using AI and displays the results.
+
+Application Name: **Website Auto Policy Violation Checker**
+
+## Tech Stack
+- **UI Framework**: Streamlit
+- **AI Integration**: LangChain + Google Generative AI (`langchain-google-genai`)
+- **Screenshot**: Playwright (returns base64 encoded string)
+- **Web Scraping**: requests + BeautifulSoup4
+- **Image Processing**: base64 encoding/decoding
+- **Dependency Management**: uv (pyproject.toml)
+
+## Project Structure
+- `main.py`: Main logic for Streamlit app
+- `ai_analyzer.py`: AI analysis functionality (LangChain + Google Generative AI)
+- `screen_shot.py`: Screenshot functionality (returns base64 encoded string)
+- `schema.py`: Schema definitions (POLICY_ITEMS, MODEL_OPTIONS)
+- `policy_mapping.py`: Policy mapping functionality
+- `pyproject.toml`: Dependency management (using uv)
+
+## Development Guidelines
+
+### Streamlit Development
+- Follow Streamlit best practices
+- Use session state (`st.session_state`) appropriately
+- State management during processing: use `is_analyzing` flag
+- Use `st.rerun()` to update UI
+- Implement proper error handling
+- Design UI with user experience in mind
+- Use button's `disabled` parameter to restrict operations during processing
+
+### LangChain Integration
+- Use Google Generative AI (`langchain-google-genai`)
+- Model specification: `gemini-3-pro-preview` (current default)
+- Initialize model using `ChatGoogleGenerativeAI`
+- Design prompts in structured format
+- Use Pydantic models to ensure JSON format output
+- Get policy markdown from `policy_mapping.py`
+
+### Playwright Usage
+- Screenshot capture uses async processing (`async/await`)
+- Set timeout appropriately (30 seconds)
+- Implement error handling (use `warnings` module)
+- Properly manage browser instances
+- **Important**: Screenshots are not saved as files, but returned as base64 encoded strings
+- Handle event loop policy settings for Windows environment
+
+### Web Scraping
+- Use `requests` and `BeautifulSoup`
+- Implement timeout and retry logic
+- Set user agent appropriately
+- Implement error handling
+
+### Policy Items
+The following 15 items are available:
+1. Counterfeit goods
+2. Dangerous products or services
+3. Enabling dishonest behavior
+4. Inappropriate content
+5. Abusing the ad network
+6. Data collection and use
+7. Misrepresentation
+8. Ad protections for children and teens
+9. Alcohol
+10. Gambling and games
+11. Healthcare and medicines
+12. Political content
+13. Financial products and services
+14. Sexual content
+15. Legal requirements
+
+### Screenshot Processing
+- Use `take_screenshot()` function from `screen_shot.py`
+- Returns base64 encoded string
+- If XPath is specified, screenshot only that element
+- If XPath is not specified, screenshot the entire page
+- Returns `None` on error
+
+### Session State Management
+- `is_analyzing`: Flag indicating if processing is in progress
+- `results`: List of processing results
+- `urls`: List of URLs to process (only during processing)
+- `api_key`, `selected_policies`, `model_name`: Configuration values needed for processing
+
+## Coding Conventions
+- Use Python 3.13+
+- Use type hints appropriately
+- Implement proper error handling
+- Add docstrings
+- Do not use semicolons (following TypeScript rules)
+
+## Implementation Notes
+- URL processing is sequential (parallel processing not implemented)
+- Screenshots are saved and displayed as base64 encoded strings (do not save as files)
+- AI prompts include selected policy items
+- Output is displayed in table format
+- Display screenshot images for each result (decode base64 for display)
+- After processing completes, set `is_analyzing` to `False` and update UI with `st.rerun()`
+- Run validation checks before starting processing
+- Display appropriate error messages on errors
+
+## About API Keys
+- Get API key from Google AI Studio: https://aistudio.google.com/app/api-keys
+- A valid billing account is required to use `gemini-3-pro-preview`
