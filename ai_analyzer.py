@@ -36,10 +36,13 @@ def create_policy_violation_analysis_model(
             str,
             Field(
                 description=(
-                    "Detailed explanation of why this policy violation was identified, "
+                    "Brief explanation of why this policy violation was identified, "
                     "referencing specific content from the website. "
                     "If no violation is found, provide a brief reason."
+                    "You need to provide where they violated the policy in one sentence,"
+                    "and description of it in another sentence, so 2 lines in total."
                 ),
+                example="The website is saying that they are selling CBD oils, but they are not licensed to sell CBD oils made from cannabis. This is against the policy of Legal requirements, because cannabis is a controlled substance in Japan, and thera are possibilities their cusomer abuse the product.",
             ),
         ),
         xpath=(
