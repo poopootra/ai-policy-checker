@@ -45,6 +45,19 @@ def create_policy_violation_analysis_model(
                 example="The website is saying that they are selling CBD oils, but they are not licensed to sell CBD oils made from cannabis. This is against the policy of Legal requirements, because cannabis is a controlled substance in Japan, and thera are possibilities their cusomer abuse the product.",
             ),
         ),
+        location_of_violation=(
+            str,
+            Field(
+                description=(
+                    "日本語で違反のある具体的な場所を簡潔に返してください。"
+                    "ユーザーが簡単な説明で"
+                ),
+                examples=[
+                    "トップページ画面中央の女性が商品を持った画像が示されているバナー広告",
+                    "ページをスクロールして真ん中ほどの、緑の背景に「CBDオイル」という文字の記載がある部分",
+                ],
+            ),
+        ),
         xpath=(
             str,
             Field(

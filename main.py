@@ -22,6 +22,7 @@ def process_url(
         "url": url,
         "violated_policy": "Processing...",
         "reason": "",
+        "location_of_violation": "",
         "screenshot_base64": None,
         "xpath": None,
         "error": None,
@@ -38,6 +39,11 @@ def process_url(
 
         result["violated_policy"] = analysis.violated_policy
         result["reason"] = analysis.reason
+        result["location_of_violation"] = getattr(
+            analysis,
+            "location_of_violation",
+            "",
+        )
         result["xpath"] = getattr(analysis, "xpath", None)
 
         # Take screenshot and encode as base64
@@ -232,6 +238,10 @@ def main():
                     "URL": result["url"],
                     "Violated Policy": result["violated_policy"],
                     "Reason": result["reason"],
+                    "Location of Violation": result.get(
+                        "location_of_violation",
+                        "",
+                    ),
                 },
             )
 
@@ -254,6 +264,10 @@ def main():
                         st.error(f"Error: {result['error']}")
 
                 with col2:
+                    if result.get("location_of_violation"):
+                        st.write("**Location of Violation:**")
+                        st.write(result["location_of_violation"])
+
                     st.subheader("Screenshot")
                     if result.get("screenshot_base64"):
                         try:
