@@ -1,5 +1,7 @@
 """Schema for the book building checker"""
 
+NO_VIOLATION_POLICY = "No policy violation"
+
 # Policy items list
 POLICY_ITEMS = [
     "Counterfeit goods",

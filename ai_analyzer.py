@@ -7,7 +7,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field, create_model
 
 from policy_mapping import get_policy_markdown
-from schema import POLICY_ITEMS
+from schema import NO_VIOLATION_POLICY, POLICY_ITEMS
 
 
 def create_policy_violation_analysis_model(
@@ -19,15 +19,17 @@ def create_policy_violation_analysis_model(
     - `violated_policy`: A field that must be one of the values in `policy_literals`.
     - `reason`: A field that must be a string.
     """
+    policy_options = [NO_VIOLATION_POLICY, *policy_literals]
+
     return create_model(
         "PolicyViolationAnalysis",
         violated_policy=(
-            Literal[tuple(policy_literals)],
+            Literal[tuple(policy_options)],
             Field(
                 description=(
                     """
                 The name of the violated policy from the selected policies list,
-                you must find out the policy that is violated from the website content
+                or No policy violation if none of the selected policies are violated.
                 """
                 ),
             ),
@@ -82,6 +84,30 @@ def create_policy_violation_analysis_model(
 RESPONSE_FORMAT = get_type_hints(create_policy_violation_analysis_model)["return"]
 
 
+def format_ai_error(error: Exception, model_name: str, api_key: str) -> str:
+    """Build a UI-safe AI error message."""
+    message = str(error)
+    if api_key:
+        message = message.replace(api_key, "[API key]")
+    message = "\n".join(
+        line
+        for line in message.splitlines()
+        if not line.strip().startswith("Retrying ")
+    )
+
+    if (
+        "429" in message
+        or "RESOURCE_EXHAUSTED" in message
+        or "quota" in message.lower()
+    ):
+        return (
+            f"Selected model '{model_name}' returned a quota/rate-limit error. "
+            "Try gemini-flash-lite-latest or check the key's Gemini API quota."
+        )
+
+    return message[:1000]
+
+
 def analyze_with_ai(
     url: str,
     selected_policies: list[Literal[tuple(POLICY_ITEMS)]],
@@ -107,6 +133,8 @@ def analyze_with_ai(
         passed by url from user.
         Be thorough in your analysis and provide specific reasons for your findings.
         Provide your answer based only on the contents of the website from the url.
+        If the website does not violate any selected policy, set violated_policy to
+        "{NO_VIOLATION_POLICY}" and explain why.
 
         Always return output in the following format:
         <response_format>
@@ -137,6 +165,8 @@ def analyze_with_ai(
             response_schema=response_format.model_json_schema(),
             response_mime_type="application/json",
             thinking_budget=1024,
+            retries=0,
+            request_timeout=60,
         )
         llm_with_tools = llm.bind_tools(tools)
 
@@ -150,4 +180,4 @@ def analyze_with_ai(
         except Exception as e:
             raise Exception(f"Error parsing response: {e!s}")
     except Exception as e:
-        raise Exception(f"AI analysis error: {e!s}")
+        raise Exception(f"AI analysis error: {format_ai_error(e, model_name, api_key)}")

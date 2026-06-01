@@ -12,6 +12,28 @@ from screen_shot import take_screenshot
 os.system("playwright install chromium")
 
 GEMINI_MODELS_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models"
+PREFERRED_MODEL_IDS = [
+    "gemini-flash-lite-latest",
+    "gemini-flash-latest",
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-3-flash-preview",
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash-lite",
+]
+SPECIALIZED_MODEL_KEYWORDS = (
+    "antigravity",
+    "computer-use",
+    "customtools",
+    "deep-research",
+    "gemma",
+    "image",
+    "lyria",
+    "pro",
+    "robotics",
+    "tts",
+)
 
 
 def sanitize_model_error(message: str, api_key: str) -> str:
@@ -19,6 +41,29 @@ def sanitize_model_error(message: str, api_key: str) -> str:
     if api_key:
         message = message.replace(api_key, "[API key]")
     return message.strip()
+
+
+def is_specialized_model(model_id: str) -> bool:
+    """Return true for models that are poor defaults for text website analysis."""
+    return any(keyword in model_id for keyword in SPECIALIZED_MODEL_KEYWORDS)
+
+
+def model_sort_key(model: dict[str, str]) -> tuple[int, int, str]:
+    """Prefer low-quota general text models while preserving all returned choices."""
+    model_id = model["id"]
+    if model_id in PREFERRED_MODEL_IDS:
+        return (0, PREFERRED_MODEL_IDS.index(model_id), model_id)
+    if is_specialized_model(model_id):
+        return (2, 0, model_id)
+    return (1, 0, model_id)
+
+
+def build_model_label(model_id: str, display_name: str) -> str:
+    """Build a user-facing model label with quota risk hints."""
+    label = f"{display_name} ({model_id})"
+    if is_specialized_model(model_id):
+        label += " - specialized/quota-limited"
+    return label
 
 
 def fetch_available_models(api_key: str) -> tuple[list[dict[str, str]], str | None]:
@@ -65,7 +110,7 @@ def fetch_available_models(api_key: str) -> tuple[list[dict[str, str]], str | No
                 models.append(
                     {
                         "id": model_id,
-                        "label": f"{display_name} ({model_id})",
+                        "label": build_model_label(model_id, display_name),
                     },
                 )
 
@@ -76,7 +121,7 @@ def fetch_available_models(api_key: str) -> tuple[list[dict[str, str]], str | No
     except requests.RequestException as e:
         return [], f"Failed to fetch models: {sanitize_model_error(str(e), api_key)}"
 
-    models.sort(key=lambda item: item["id"])
+    models.sort(key=model_sort_key)
     return models, None
 
 
