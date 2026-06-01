@@ -1,13 +1,100 @@
 import base64
+import hashlib
 import os
 
+import requests
 import streamlit as st
 
 from ai_analyzer import analyze_with_ai
-from schema import MODEL_OPTIONS, POLICY_ITEMS
+from schema import POLICY_ITEMS
 from screen_shot import take_screenshot
 
 os.system("playwright install chromium")
+
+GEMINI_MODELS_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models"
+
+
+def sanitize_model_error(message: str, api_key: str) -> str:
+    """Avoid echoing user API keys back into the UI."""
+    if api_key:
+        message = message.replace(api_key, "[API key]")
+    return message.strip()
+
+
+def fetch_available_models(api_key: str) -> tuple[list[dict[str, str]], str | None]:
+    """Fetch Gemini models available to the provided API key."""
+    models: list[dict[str, str]] = []
+    page_token = None
+
+    try:
+        while True:
+            params = {"key": api_key, "pageSize": 1000}
+            if page_token:
+                params["pageToken"] = page_token
+
+            response = requests.get(
+                GEMINI_MODELS_ENDPOINT,
+                params=params,
+                timeout=15,
+            )
+            if response.status_code != 200:
+                try:
+                    message = response.json().get("error", {}).get("message")
+                except ValueError:
+                    message = response.text
+                error_detail = sanitize_model_error(
+                    message or response.reason,
+                    api_key,
+                )
+                return [], f"Failed to fetch models: {error_detail}"
+
+            payload = response.json()
+            for model in payload.get("models", []):
+                if "generateContent" not in model.get(
+                    "supportedGenerationMethods",
+                    [],
+                ):
+                    continue
+
+                name = model.get("name", "")
+                model_id = name.removeprefix("models/")
+                if not model_id:
+                    continue
+
+                display_name = model.get("displayName") or model_id
+                models.append(
+                    {
+                        "id": model_id,
+                        "label": f"{display_name} ({model_id})",
+                    },
+                )
+
+            page_token = payload.get("nextPageToken")
+            if not page_token:
+                break
+
+    except requests.RequestException as e:
+        return [], f"Failed to fetch models: {sanitize_model_error(str(e), api_key)}"
+
+    models.sort(key=lambda item: item["id"])
+    return models, None
+
+
+def get_available_models(api_key: str) -> tuple[list[dict[str, str]], str | None]:
+    """Return cached model options for the current Streamlit session."""
+    key_hash = hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+    cache = st.session_state.get("model_options_cache")
+
+    if cache and cache.get("key_hash") == key_hash:
+        return cache["models"], cache["error"]
+
+    models, error = fetch_available_models(api_key)
+    st.session_state.model_options_cache = {
+        "key_hash": key_hash,
+        "models": models,
+        "error": error,
+    }
+    return models, error
 
 
 def process_url(
@@ -92,8 +179,7 @@ def main():
     You wil need to enter your API key for the selected AI model.
     You can check get your API key from the following URL:
     [Google AI Studio](https://aistudio.google.com/app/api-keys)\n
-    Beware that since Gemini-3-pro-preview is the model in use, you need to get API with
-    valid billing account.
+    Some Gemini models may require a valid billing account.
     """)
 
     # Initialize session state
@@ -114,14 +200,43 @@ def main():
             help="Enter your API key for the selected AI model",
             disabled=st.session_state.is_analyzing,
         )
+        api_key = api_key.strip()
 
-        model_name = st.selectbox(
-            "AI Model",
-            options=MODEL_OPTIONS,
-            index=0,
-            help="Select the AI model to use (langchain literal format)",
-            disabled=st.session_state.is_analyzing,
-        )
+        model_options = []
+        model_error = None
+        if api_key:
+            with st.spinner("Loading models..."):
+                model_options, model_error = get_available_models(api_key)
+
+        if api_key and model_options:
+            model_ids = [model["id"] for model in model_options]
+            model_labels = {model["id"]: model["label"] for model in model_options}
+            model_name = st.selectbox(
+                "AI Model",
+                options=model_ids,
+                index=0,
+                format_func=lambda model_id: model_labels.get(model_id, model_id),
+                help="Select the AI model to use (langchain literal format)",
+                disabled=st.session_state.is_analyzing,
+            )
+        else:
+            placeholder = (
+                "Enter an API key first"
+                if not api_key
+                else "No compatible models available"
+            )
+            st.selectbox(
+                "AI Model",
+                options=[placeholder],
+                index=0,
+                disabled=True,
+            )
+            model_name = None
+
+        if model_error:
+            st.error(model_error)
+        elif api_key and not model_options:
+            st.warning("No generateContent-compatible models were returned.")
 
         st.divider()
 
@@ -158,6 +273,10 @@ def main():
         # Validation check
         if not api_key:
             st.error("Please enter an API key")
+            return
+
+        if not model_name:
+            st.error("Please select an AI model")
             return
 
         if not selected_policies:

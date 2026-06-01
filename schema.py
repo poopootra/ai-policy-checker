@@ -18,8 +18,3 @@ POLICY_ITEMS = [
     "Sexual content",
     "Legal requirements",
 ]
-
-# Model options (langchain literal format)
-MODEL_OPTIONS = [
-    "gemini-3-pro-preview",
-]
