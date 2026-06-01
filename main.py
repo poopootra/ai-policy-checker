@@ -7,8 +7,7 @@ from ai_analyzer import analyze_with_ai
 from schema import MODEL_OPTIONS, POLICY_ITEMS
 from screen_shot import take_screenshot
 
-os.system("playwright install")
-os.system("playwright install-deps")
+os.system("playwright install chromium")
 
 
 def process_url(
