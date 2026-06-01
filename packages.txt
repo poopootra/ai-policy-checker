@@ -25,7 +25,7 @@ libenchant-2-dev
 libsecret-1-dev
 libhyphen-dev
 libegl1-mesa-dev
-libgl1-mesa-glx
+libgl1
 libgles2-mesa-dev
 libx264-dev
 libwoff1
